@@ -8,16 +8,94 @@ import (
 	"context"
 	"fmt"
 	"lms_backend/graph/model"
+	"errors"
+	"crypto/rand"
+	"encoding/hex"
+	
 )
 
-// CreateTodo is the resolver for the createTodo field.
-func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
+// SignupUser is the resolver for the SignupUser field.
+func (r *mutationResolver) SignupUser(ctx context.Context, email string, password string, name string) (*model.User, error) {
+	// Implement your logic for signing up a new user here
+	// Check if a user with the given email already exists
+	existingUser, err := findUserByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	if existingUser != nil {
+		return nil, fmt.Errorf("user with email %s already exists", email)
+	}
+
+	// Create a new user with the given email, password, and name
+	user := &model.User{
+		ID:       generateID(),
+		Email:    email,
+		Password: password,
+		Name:     name,
+	}
+
+	// Add the new user to the database
+	err = addUser(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
-// Todos is the resolver for the todos field.
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
+// LoginUser is the resolver for the LoginUser field.
+func (r *mutationResolver) LoginUser(ctx context.Context, email string, password string) (*model.User, error) {
+	// Implement your logic for logging in a user here
+	// You may want to check that the email and password match a user in your database
+	return &model.User{
+		ID:       "123",
+		Email:    email,
+		Password: password,
+		Name:     "John Smith",
+	}, nil
+}
+
+// UpdateUser is the resolver for the UpdateUser field.
+func (r *mutationResolver) UpdateUser(ctx context.Context, id string, email string, password string, name string) (*model.User, error) {
+	// Implement your logic for updating a user here
+	// You may want to check that the ID matches a user in your database
+	return &model.User{
+		ID:       id,
+		Email:    email,
+		Password: password,
+		Name:     name,
+	}, nil
+}
+
+// DeleteUser is the resolver for the DeleteUser field.
+func (r *mutationResolver) DeleteUser(ctx context.Context, id string) (*model.User, error) {
+	// Implement your logic for deleting a user here
+	// You may want to check that the ID matches a user in your database
+	return &model.User{
+		ID:       id,
+		Email:    "",
+		Password: "",
+		Name:     "",
+	}, nil
+}
+
+// Users is the resolver for the Users field.
+func (r *queryResolver) Users(ctx context.Context) ([]*model.User, error) {
+	// Implement your logic for returning a list of users here
+	return []*model.User{
+		{
+			ID:       "123",
+			Email:    "john@example.com",
+			Password: "password",
+			Name:     "John Smith",
+		},
+		{
+			ID:       "456",
+			Email:    "jane@example.com",
+			Password: "password",
+			Name:     "Jane Smith",
+		},
+	}, nil
 }
 
 // Mutation returns MutationResolver implementation.
@@ -28,3 +106,41 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+
+
+// findUserByEmail finds a user with the given email in the database.
+func findUserByEmail(email string) (*model.User, error) {
+	// Replace this placeholder implementation with your own database query
+	if email == "john@example.com" {
+		return &model.User{
+			ID:       "123",
+			Email:    "john@example.com",
+			Password: "password",
+			Name:     "John Smith",
+		}, nil
+	}
+	return nil, nil
+}
+
+// addUser adds a user to the database.
+func addUser(user *model.User) error {
+	// Replace this placeholder implementation with your own database query
+	if user.Email == "john@example.com" {
+		return errors.New("user with email john@example.com already exists")
+	}
+	return nil
+}
+
+// generateID generates a unique identifier.
+func generateID() string {
+	// Generate a random 16-byte slice
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		// This should never happen, but if it does, return an empty ID
+		return ""
+	}
+
+	// Encode the random bytes as a hexadecimal string
+	return hex.EncodeToString(b)
+}
