@@ -71,12 +71,39 @@ func (r *mutationResolver) LoginUser(ctx context.Context, email string, password
 func (r *mutationResolver) UpdateUser(ctx context.Context, id string, email string, password string, name string) (*model.User, error) {
 	// Implement your logic for updating a user here
 	// You may want to check that the ID matches a user in your database
-	return &model.User{
-		ID:       id,
-		Email:    email,
-		Password: password,
-		Name:     name,
-	}, nil
+	// Find the user with the given ID
+	// Find the user with the given ID
+	user, err := findUserByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user with ID %s not found", id)
+	}
+
+	// Validate the email and name
+	if !validateEmail(email) {
+		return nil, errors.New("invalid email")
+	}
+	if !validateName(name) {
+		return nil, errors.New("invalid name")
+	}
+
+	// Hash the password
+	hashedPassword := hashPassword(password)
+
+	// Update the user's email, password, and name
+	user.Email = email
+	user.Password = hashedPassword
+	user.Name = name
+
+	// Save the updated user to the database
+	err = updateUser(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 // DeleteUser is the resolver for the DeleteUser field.
@@ -162,4 +189,53 @@ func hashPassword(password string) string {
 	h := sha256.New()
 	h.Write([]byte(password))
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// validateEmail returns true if the given string is a valid email address.
+func validateEmail(email string) bool {
+	re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+	return re.MatchString(email)
+}
+
+// validateName returns true if the given string is a valid name.
+func validateName(name string) bool {
+	if len(name) < 2 || len(name) > 100 {
+		return false
+	}
+	for _, c := range name {
+		if !unicode.IsLetter(c) && !unicode.IsSpace(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// hashPassword hashes a password using SHA-256.
+func hashPassword(password string) string {
+	h := sha256.New()
+	h.Write([]byte(password))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// findUserByID finds a user with the given ID in the database.
+func findUserByID(id string) (*model.User, error) {
+	// Replace this placeholder implementation with your own database query
+	if id == "123" {
+		return &model.User{
+			ID:       "123",
+			Email:    "john@example.com",
+			Password: "password",
+			Name:     "John Smith",
+		}, nil
+	}
+	return nil, nil
+}
+
+// updateUser updates a user in the database.
+func updateUser(user *model.User) error {
+	// Replace this placeholder implementation with your own database query
+	if user.ID != "123" {
+		return fmt.Errorf("user with ID %s not found", user.ID)
+	}
+	return nil
 }
