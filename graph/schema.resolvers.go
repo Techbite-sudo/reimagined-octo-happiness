@@ -11,6 +11,8 @@ import (
 	"errors"
 	"crypto/rand"
 	"encoding/hex"
+	"crypto/sha256"
+	
 	
 )
 
@@ -47,12 +49,22 @@ func (r *mutationResolver) SignupUser(ctx context.Context, email string, passwor
 func (r *mutationResolver) LoginUser(ctx context.Context, email string, password string) (*model.User, error) {
 	// Implement your logic for logging in a user here
 	// You may want to check that the email and password match a user in your database
-	return &model.User{
-		ID:       "123",
-		Email:    email,
-		Password: password,
-		Name:     "John Smith",
-	}, nil
+	// Find the user with the given email
+	user, err := findUserByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user with email %s not found", email)
+	}
+
+	// Hash the given password and compare it to the hashed password in the database
+	hashedPassword := hashPassword(password)
+	if user.Password != hashedPassword {
+		return nil, errors.New("incorrect password")
+	}
+
+	return user, nil
 }
 
 // UpdateUser is the resolver for the UpdateUser field.
@@ -143,4 +155,11 @@ func generateID() string {
 
 	// Encode the random bytes as a hexadecimal string
 	return hex.EncodeToString(b)
+}
+
+// hashPassword hashes a password using SHA-256.
+func hashPassword(password string) string {
+	h := sha256.New()
+	h.Write([]byte(password))
+	return hex.EncodeToString(h.Sum(nil))
 }
