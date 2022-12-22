@@ -2,11 +2,21 @@
 #
 # https://gqlgen.com/getting-started/
 
+
+enum Role {
+  ADMIN
+  TUTORS
+  STUDENT
+  PARTNER
+}
+
 type User {
   ID: ID!
   Email: String!
   Password: String!
   Name: String!
+  Role: String!
+  Token: String!
 }
 
 type Query {
@@ -18,4 +28,6 @@ type Mutation {
   LoginUser(email: String!, password: String!): User!
   UpdateUser(id: ID!, email: String!, password: String!, name: String!): User!
   DeleteUser(id: ID!): User!
+  RequestPasswordReset(email: String!): User!
+  ResetPassword(token: String, password: String!): User!
 }

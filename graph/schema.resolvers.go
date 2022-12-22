@@ -6,24 +6,19 @@ package graph
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
+	"lms_backend/engine/users"
 	"lms_backend/graph/model"
-	"regexp"
-	"unicode"
-	"database/sql"
 
-	_ "github.com/lib/pq" // PostgreSQL driver
+	_ "github.com/lib/pq"
 )
 
 // SignupUser is the resolver for the SignupUser field.
 func (r *mutationResolver) SignupUser(ctx context.Context, email string, password string, name string) (*model.User, error) {
 	// Implement your logic for signing up a new user here
 	// Check if a user with the given email already exists
-	existingUser, err := findUserByEmail(email)
+	existingUser, err := users.FindUserByEmail(email)
 	if err != nil {
 		return nil, err
 	}
@@ -33,14 +28,15 @@ func (r *mutationResolver) SignupUser(ctx context.Context, email string, passwor
 
 	// Create a new user with the given email, password, and name
 	user := &model.User{
-		ID:       generateID(),
+		ID:       users.GenerateID(),
 		Email:    email,
 		Password: password,
 		Name:     name,
+		Role:     existingUser.Role, //should be checked again
 	}
 
 	// Add the new user to the database
-	err = addUser(user)
+	err = users.AddUser(user)
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +49,7 @@ func (r *mutationResolver) LoginUser(ctx context.Context, email string, password
 	// Implement your logic for logging in a user here
 	// You may want to check that the email and password match a user in your database
 	// Find the user with the given email
-	user, err := findUserByEmail(email)
+	user, err := users.FindUserByEmail(email)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +58,7 @@ func (r *mutationResolver) LoginUser(ctx context.Context, email string, password
 	}
 
 	// Hash the given password and compare it to the hashed password in the database
-	hashedPassword := hashPassword(password)
+	hashedPassword := users.HashPassword(password)
 	if user.Password != hashedPassword {
 		return nil, errors.New("incorrect password")
 	}
@@ -75,7 +71,7 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, id string, email stri
 	// Implement your logic for updating a user here
 	// You may want to check that the ID matches a user in your database
 	// Find the user with the given ID
-	user, err := findUserByID(id)
+	user, err := users.FindUserByID(id)
 	if err != nil {
 		return nil, err
 	}
@@ -84,15 +80,15 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, id string, email stri
 	}
 
 	// Validate the email and name
-	if !validateEmail(email) {
+	if !users.ValidateEmail(email) {
 		return nil, errors.New("invalid email")
 	}
-	if !validateName(name) {
+	if !users.ValidateName(name) {
 		return nil, errors.New("invalid name")
 	}
 
 	// Hash the password
-	hashedPassword := hashPassword(password)
+	hashedPassword := users.HashPassword(password)
 
 	// Update the user's email, password, and name
 	user.Email = email
@@ -100,7 +96,7 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, id string, email stri
 	user.Name = name
 
 	// Save the updated user to the database
-	err = updateUser(user)
+	err = users.UpdateUser(user)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +109,7 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id string) (*model.Us
 	// Implement your logic for deleting a user here
 	// You may want to check that the ID matches a user in your database
 	// Find the user with the given ID
-	user, err := findUserByID(id)
+	user, err := users.FindUserByID(id)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +118,7 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id string) (*model.Us
 	}
 
 	// Delete the user from the database
-	err = deleteUser(user)
+	err = users.DeleteUser(user)
 	if err != nil {
 		return nil, err
 	}
@@ -130,11 +126,21 @@ func (r *mutationResolver) DeleteUser(ctx context.Context, id string) (*model.Us
 	return user, nil
 }
 
+// RequestPasswordReset is the resolver for the RequestPasswordReset field.
+func (r *mutationResolver) RequestPasswordReset(ctx context.Context, email string) (*model.User, error) {
+	panic(fmt.Errorf("not implemented: RequestPasswordReset - RequestPasswordReset"))
+}
+
+// ResetPassword is the resolver for the ResetPassword field.
+func (r *mutationResolver) ResetPassword(ctx context.Context, token *string, password string) (*model.User, error) {
+	panic(fmt.Errorf("not implemented: ResetPassword - ResetPassword"))
+}
+
 // Users is the resolver for the Users field.
 func (r *queryResolver) Users(ctx context.Context) ([]*model.User, error) {
 	// Implement your logic for returning a list of users here
 	// Query the database for a list of users
-	users, err := listUsers()
+	users, err := users.ListUsers()
 	if err != nil {
 		return nil, err
 	}
@@ -150,175 +156,3 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-
-
-// findUserByEmail finds a user with the given email in the database.
-func findUserByEmail(email string) (*model.User, error) {
-	// Open a connection to the database
-	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	// Query the database for a user with the given email
-	var user model.User
-	err = db.QueryRow("SELECT id, email, password, name FROM users WHERE email = $1", email).Scan(&user.ID, &user.Email, &user.Password, &user.Name)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &user, nil
-}
-
-// addUser adds a user to the database.
-func addUser(user *model.User) error {
-		// Open a connection to the database
-		db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-	
-		// Insert the user into the database
-		_, err = db.Exec("INSERT INTO users (id, email, password, name) VALUES ($1, $2, $3, $4)", user.ID, user.Email, user.Password, user.Name)
-		if err != nil {
-			return err
-		}
-	
-		return nil
-}
-
-// generateID generates a unique identifier.
-func generateID() string {
-	// Generate a random 16-byte slice
-	b := make([]byte, 16)
-	_, err := rand.Read(b)
-	if err != nil {
-		// This should never happen, but if it does, return an empty ID
-		return ""
-	}
-
-	// Encode the random bytes as a hexadecimal string
-	return hex.EncodeToString(b)
-}
-
-
-// validateEmail returns true if the given string is a valid email address.
-func validateEmail(email string) bool {
-	re := regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
-	return re.MatchString(email)
-}
-
-// validateName returns true if the given string is a valid name.
-func validateName(name string) bool {
-	if len(name) < 2 || len(name) > 100 {
-		return false
-	}
-	for _, c := range name {
-		if !unicode.IsLetter(c) && !unicode.IsSpace(c) {
-			return false
-		}
-	}
-	return true
-}
-
-// hashPassword hashes a password using SHA-256.
-func hashPassword(password string) string {
-	h := sha256.New()
-	h.Write([]byte(password))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
-// findUserByID finds a user with the given ID in the database.
-func findUserByID(id string) (*model.User, error) {
-	// Open a connection to the database
-	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	// Query the database for a user with the given ID
-	var user model.User
-	err = db.QueryRow("SELECT id, email, password, name FROM users WHERE id = $1", id).Scan(&user.ID, &user.Email, &user.Password, &user.Name)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	return &user, nil
-}
-
-// updateUser updates a user in the database.
-func updateUser(user *model.User) error {
-	// Open a connection to the database
-	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	// Update the user in the database
-	_, err = db.Exec("UPDATE users SET email = $1, password = $2, name = $3 WHERE id = $4", user.Email, user.Password, user.Name, user.ID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// deleteUser deletes a user from the database.
-func deleteUser(user *model.User) error {
-	// Open a connection to the database
-	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	// Delete the user from the database
-	_, err = db.Exec("DELETE FROM users WHERE id = $1", user.ID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// listUsers retrieves a list of users from the database.
-func listUsers() ([]*model.User, error) {
-	// Open a connection to the database
-	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-
-	// Query the database for a list of users
-	rows, err := db.Query("SELECT id, email, password, name FROM users")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// Iterate through the rows and create a list of users
-	var users []*model.User
-	for rows.Next() {
-		var user model.User
-		if err := rows.Scan(&user.ID, &user.Email, &user.Password, &user.Name); err != nil {
-			return nil, err
-		}
-		users = append(users, &user)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return users, nil
-}
