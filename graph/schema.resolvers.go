@@ -75,7 +75,6 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, id string, email stri
 	// Implement your logic for updating a user here
 	// You may want to check that the ID matches a user in your database
 	// Find the user with the given ID
-	// Find the user with the given ID
 	user, err := findUserByID(id)
 	if err != nil {
 		return nil, err
@@ -155,25 +154,42 @@ type queryResolver struct{ *Resolver }
 
 // findUserByEmail finds a user with the given email in the database.
 func findUserByEmail(email string) (*model.User, error) {
-	// Replace this placeholder implementation with your own database query
-	if email == "john@example.com" {
-		return &model.User{
-			ID:       "123",
-			Email:    "john@example.com",
-			Password: "password",
-			Name:     "John Smith",
-		}, nil
+	// Open a connection to the database
+	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	defer db.Close()
+
+	// Query the database for a user with the given email
+	var user model.User
+	err = db.QueryRow("SELECT id, email, password, name FROM users WHERE email = $1", email).Scan(&user.ID, &user.Email, &user.Password, &user.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &user, nil
 }
 
 // addUser adds a user to the database.
 func addUser(user *model.User) error {
-	// Replace this placeholder implementation with your own database query
-	if user.Email == "john@example.com" {
-		return errors.New("user with email john@example.com already exists")
-	}
-	return nil
+		// Open a connection to the database
+		db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+	
+		// Insert the user into the database
+		_, err = db.Exec("INSERT INTO users (id, email, password, name) VALUES ($1, $2, $3, $4)", user.ID, user.Email, user.Password, user.Name)
+		if err != nil {
+			return err
+		}
+	
+		return nil
 }
 
 // generateID generates a unique identifier.
@@ -219,24 +235,41 @@ func hashPassword(password string) string {
 
 // findUserByID finds a user with the given ID in the database.
 func findUserByID(id string) (*model.User, error) {
-	// Replace this placeholder implementation with your own database query
-	if id == "123" {
-		return &model.User{
-			ID:       "123",
-			Email:    "john@example.com",
-			Password: "password",
-			Name:     "John Smith",
-		}, nil
+	// Open a connection to the database
+	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	defer db.Close()
+
+	// Query the database for a user with the given ID
+	var user model.User
+	err = db.QueryRow("SELECT id, email, password, name FROM users WHERE id = $1", id).Scan(&user.ID, &user.Email, &user.Password, &user.Name)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &user, nil
 }
 
 // updateUser updates a user in the database.
 func updateUser(user *model.User) error {
-	// Replace this placeholder implementation with your own database query
-	if user.ID != "123" {
-		return fmt.Errorf("user with ID %s not found", user.ID)
+	// Open a connection to the database
+	db, err := sql.Open("postgres", "postgres://user:password@localhost/database?sslmode=disable")
+	if err != nil {
+		return err
 	}
+	defer db.Close()
+
+	// Update the user in the database
+	_, err = db.Exec("UPDATE users SET email = $1, password = $2, name = $3 WHERE id = $4", user.Email, user.Password, user.Name, user.ID)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
